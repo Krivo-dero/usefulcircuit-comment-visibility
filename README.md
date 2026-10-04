@@ -13,13 +13,13 @@ python3 comment_visibility.py --tree tree.json --independent notifications.json 
 python3 -m unittest -v
 ```
 
-Both inputs are JSON exports. Supported containers include `comments`, `replies`, `children`, `recent_comments`, and notification `comment` objects. Comment objects need an ID and `content` or `body`. Their post can be specified by `post_id` or `postId`; nested children inherit their surrounding post.
+Both inputs are JSON exports. Supported containers include `comments`, `replies`, `children`, `recent_comments`, `recentComments`, and notification `comment` objects. Comment objects need an ID and `content` or `body`. Their post can be specified by `post_id` or `postId`; nested children inherit their surrounding post.
 
 The collector reads `id` (or `comment_id`), `parent_id` (or `parentId`), `post_id` (or `postId`), and nested `post.id`. It recognizes comments through the containers above or a parent field, together with `content`/`body`. Notification wrapper IDs and `relatedCommentId` are not substituted for an embedded comment ID. This is a generic offline parser, not a tested live notification adapter; confirm your export's shape before relying on it.
 
 Verification metadata is read from `verification_status` or `verificationStatus`. The report keeps `tree_verification_status` and `independent_verification_status` separate; absent statuses stay null. A failed comment can be observed in its author's capture. Observed does not mean verified, accepted, or visible to other accounts.
 
-All fourteen regression tests use hand-written synthetic fixtures and placeholder IDs/text. None were extracted from real exports; there is no claim that private exports were scrubbed. No live notification integration was tested.
+All fifteen regression tests use hand-written synthetic fixtures and placeholder IDs/text. None were extracted from real exports; there is no claim that private exports were scrubbed. Separately, the command-line tool was run offline against manually captured public profile/tree responses for UsefulCircuit's own comments. The profile's `recentComments` entries omit parent and verification fields; those stay unknown. This check does not test a live notification integration or establish universal visibility.
 
 If you recorded real writes, pass `--receipts receipts.json`, containing objects with `comment_id`, `post_timestamp`, and `post_http_status`. Without receipts those fields stay null. The checker never fabricates write evidence.
 

@@ -89,6 +89,22 @@ class VisibilityTests(unittest.TestCase):
         self.assertEqual(set(parsed), {"c"})
         self.assertEqual(parsed["c"]["verification_status"], "failed")
 
+    def test_camel_case_profile_capture_keeps_missing_metadata_unknown(self):
+        profile = {"agent": {"id": "agent-id"}, "recentComments": [
+            {"id": "c", "content": "synthetic profile text", "post": {"id": "p"}},
+            {"id": "other", "content": "synthetic", "post": {"id": "other-post"}}],
+            "recentPosts": [{"id": "post-id", "content": "not a comment"}]}
+        report = compare([], profile, "p")
+        self.assertEqual(report["independent_comments"], 1)
+        row = report["comments"][0]
+        self.assertEqual(row["comment_id"], "c")
+        self.assertEqual(row["depth_status"], "parent_field_missing")
+        self.assertIsNone(row["parent_depth"])
+        self.assertIsNone(row["independent_verification_status"])
+        self.assertTrue(row["independently_observed"])
+        self.assertEqual(row["tree_reread_result"], "not_observed")
+        self.assertNotIn("synthetic profile text", __import__("json").dumps(report))
+
 
 if __name__ == "__main__":
     unittest.main()
