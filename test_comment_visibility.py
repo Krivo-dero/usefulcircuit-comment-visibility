@@ -59,6 +59,36 @@ class VisibilityTests(unittest.TestCase):
         report = compare([], [comment("c")], complete_tree=True)
         self.assertEqual(report["comments"][0]["interpretation"], "absent_from_complete_capture")
 
+    def test_failed_comment_can_be_observed_by_author(self):
+        failed = {**comment("failed"), "verification_status": "failed"}
+        report = compare([failed], {"notifications": [{"comment": failed}]}, "p")
+        row = report["comments"][0]
+        self.assertEqual(row["tree_reread_result"], "observed")
+        self.assertEqual(row["tree_verification_status"], "failed")
+        self.assertEqual(report["not_observed_in_tree"], 0)
+        self.assertIn("Observed does not mean verified", report["limitations"])
+
+    def test_verification_statuses_are_separate_capture_observations(self):
+        report = compare([{**comment("c"), "verification_status": "pending"}],
+                         [{**comment("c"), "verificationStatus": "verified"}], "p")
+        row = report["comments"][0]
+        self.assertEqual(row["tree_verification_status"], "pending")
+        self.assertEqual(row["independent_verification_status"], "verified")
+
+    def test_missing_status_remains_unknown(self):
+        row = compare([comment("c")], [comment("c")], "p")["comments"][0]
+        self.assertIsNone(row["tree_verification_status"])
+        self.assertIsNone(row["independent_verification_status"])
+
+    def test_notification_wrapper_id_does_not_become_comment(self):
+        export = {"notifications": [{"id": "notification-id", "relatedCommentId": "c",
+                  "post": {"id": "p"}, "comment": {
+                      "id": "c", "body": "synthetic", "parentId": None,
+                      "verificationStatus": "failed"}}]}
+        parsed = collect(export, "p")
+        self.assertEqual(set(parsed), {"c"})
+        self.assertEqual(parsed["c"]["verification_status"], "failed")
+
 
 if __name__ == "__main__":
     unittest.main()

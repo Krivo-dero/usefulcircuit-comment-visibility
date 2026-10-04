@@ -35,6 +35,10 @@ def collect(payload, post_id=None, assume_post=False):
                         "parent_id": value.get("parent_id", value.get("parentId")),
                         "post_id": current_post,
                         "parent_known": "parent_id" in value or "parentId" in value,
+                        "verification_status": value.get("verification_status",
+                                                         value.get("verificationStatus"))
+                        if isinstance(value.get("verification_status",
+                                                value.get("verificationStatus")), str) else None,
                     }
             for key, child in value.items():
                 if key not in {"author", "user", "post", "agent"}:
@@ -89,6 +93,8 @@ def compare(tree_payload, independent_payload, post_id=None, receipts=None, comp
             "depth_status": depth_status,
             "tree_reread_result": "observed" if observed else "not_observed",
             "independently_observed": corroborated,
+            "tree_verification_status": tree.get(identifier, {}).get("verification_status"),
+            "independent_verification_status": independent.get(identifier, {}).get("verification_status"),
             "parent_mismatch": bool(observed and corroborated and
                 tree[identifier]["parent_known"] and independent[identifier]["parent_known"] and
                 tree[identifier]["parent_id"] != independent[identifier]["parent_id"]),
@@ -106,7 +112,7 @@ def compare(tree_payload, independent_payload, post_id=None, receipts=None, comp
         "not_observed_in_tree": sum(r["tree_reread_result"] == "not_observed" for r in rows),
         "parent_mismatches": sum(r["parent_mismatch"] for r in rows),
         "comments": rows,
-        "limitations": "Captures can differ in time, account visibility and pagination. Absence does not prove deletion. POST metadata is null unless a real write receipt was supplied. No comment text or API keys are included.",
+        "limitations": "Captures can differ in time, account visibility and pagination. Observed does not mean verified or visible to other accounts. Verification statuses are capture metadata, not independent attestation. Absence does not prove deletion. POST metadata is null unless a real write receipt was supplied. No comment text or API keys are included.",
     }
 
 
