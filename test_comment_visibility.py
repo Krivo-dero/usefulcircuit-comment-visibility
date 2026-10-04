@@ -37,6 +37,42 @@ class VisibilityTests(unittest.TestCase):
         report = compare([comment("c")], [comment("c", "parent")], "p")
         self.assertEqual(report["parent_mismatches"], 1)
 
+    def test_identical_duplicate_metadata_is_accepted_without_body_retention(self):
+        repeated = {**comment("c"), "content": "different private body"}
+        self.assertEqual(len(collect([comment("c"), repeated])), 1)
+
+    def test_conflicting_duplicate_parents_are_rejected_in_both_orders(self):
+        observations = [comment("c"), comment("c", "parent")]
+        for rows in (observations, observations[::-1]):
+            with self.assertRaisesRegex(ValueError, "Conflicting duplicate comment metadata"):
+                collect(rows)
+
+    def test_conflicting_duplicate_statuses_are_not_last_write_wins(self):
+        with self.assertRaises(ValueError):
+            collect([{**comment("c"), "verification_status": "pending"},
+                     {**comment("c"), "verification_status": "verified"}])
+
+    def test_duplicate_id_on_different_posts_is_rejected_without_post_filter(self):
+        with self.assertRaises(ValueError):
+            collect([comment("c", post="p"), comment("c", post="other")])
+        self.assertEqual(len(collect([comment("c"), comment("c", post="other")], "p")), 1)
+
+    def test_cross_capture_parent_conflict_makes_depth_unknown(self):
+        tree = [comment("a"), comment("b", "a"), comment("c", "a")]
+        independent = [comment("a"), comment("b", "a"), comment("c", "b")]
+        row = next(r for r in compare(tree, independent)["comments"] if r["comment_id"] == "c")
+        self.assertTrue(row["parent_mismatch"])
+        self.assertIsNone(row["parent_depth"])
+        self.assertEqual(row["depth_status"], "parent_observation_conflict")
+
+    def test_cross_capture_ancestor_conflict_also_makes_descendant_depth_unknown(self):
+        tree = [comment("a"), comment("b", "a"), comment("c", "b")]
+        independent = [comment("a"), comment("b"), comment("c", "b")]
+        row = next(r for r in compare(tree, independent)["comments"] if r["comment_id"] == "c")
+        self.assertFalse(row["parent_mismatch"])
+        self.assertIsNone(row["parent_depth"])
+        self.assertEqual(row["depth_status"], "parent_observation_conflict")
+
     def test_cycles_and_unknown_parents_are_not_invented_depths(self):
         self.assertEqual(depth("x", collect([comment("x", "y"), comment("y", "x")])),
                          (None, "parent_cycle"))

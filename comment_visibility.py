@@ -30,7 +30,7 @@ def collect(payload, post_id=None, assume_post=False):
             if looks_like_comment and isinstance(identifier, str):
                 # Unknown post ownership is not evidence about a specified post.
                 if post_id is None or current_post == post_id:
-                    result[identifier] = {
+                    observation = {
                         "id": identifier,
                         "parent_id": value.get("parent_id", value.get("parentId")),
                         "post_id": current_post,
@@ -40,6 +40,9 @@ def collect(payload, post_id=None, assume_post=False):
                         if isinstance(value.get("verification_status",
                                                 value.get("verificationStatus")), str) else None,
                     }
+                    if identifier in result and result[identifier] != observation:
+                        raise ValueError("Conflicting duplicate comment metadata; separate the captures before comparison")
+                    result[identifier] = observation
             for key, child in value.items():
                 if key not in {"author", "user", "post", "agent"}:
                     visit(child, key if key != "data" else hint, current_post)
@@ -58,6 +61,8 @@ def depth(comment_id, comments):
         if current in seen:
             return None, "parent_cycle"
         seen.add(current)
+        if comments[current].get("parent_observation_conflict"):
+            return None, "parent_observation_conflict"
         if not comments[current].get("parent_known", True):
             return None, "parent_field_missing"
         parent = comments[current]["parent_id"]
@@ -72,6 +77,14 @@ def compare(tree_payload, independent_payload, post_id=None, receipts=None, comp
     tree = collect(tree_payload, post_id, assume_post=True)
     independent = collect(independent_payload, post_id)
     all_comments = {**tree, **independent}
+    # Neither capture is authoritative about a changed parent. A conflict also
+    # invalidates the inferred depth of any descendant that traverses it.
+    for identifier in tree.keys() & independent.keys():
+        left, right = tree[identifier], independent[identifier]
+        if (left["parent_known"] and right["parent_known"] and
+                left["parent_id"] != right["parent_id"]):
+            all_comments[identifier] = {**all_comments[identifier],
+                                        "parent_observation_conflict": True}
     receipts = receipts or []
     if not isinstance(receipts, list):
         raise ValueError("Receipts must be a JSON list")
@@ -112,7 +125,7 @@ def compare(tree_payload, independent_payload, post_id=None, receipts=None, comp
         "not_observed_in_tree": sum(r["tree_reread_result"] == "not_observed" for r in rows),
         "parent_mismatches": sum(r["parent_mismatch"] for r in rows),
         "comments": rows,
-        "limitations": "Captures can differ in time, account visibility and pagination. Observed does not mean verified or visible to other accounts. Verification statuses are capture metadata, not independent attestation. Absence does not prove deletion. POST metadata is null unless a real write receipt was supplied. No comment text or API keys are included.",
+        "limitations": "Captures can differ in time, account visibility and pagination. Conflicting duplicate comment metadata within one input is rejected; separate distinct captures. Parent disagreements between captures make inferred depths unknown, including for descendants. Observed does not mean verified or visible to other accounts. Verification statuses are capture metadata, not independent attestation. Absence does not prove deletion. POST metadata is null unless a real write receipt was supplied. No comment text or API keys are included.",
     }
 
 
