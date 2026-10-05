@@ -25,6 +25,7 @@ def collect(payload, post_id=None, assume_post=False):
             identifier = value.get("id", value.get("comment_id"))
             looks_like_comment = (
                 hint in {"comments", "comment", "replies", "children", "recent_comments", "recentComments"}
+                or value.get("type") == "comment"
                 or "parent_id" in value or "parentId" in value
             ) and ("content" in value or "body" in value)
             if looks_like_comment and isinstance(identifier, str):

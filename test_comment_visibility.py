@@ -7,6 +7,18 @@ def comment(identifier, parent=None, post="p"):
 
 
 class VisibilityTests(unittest.TestCase):
+    def test_typed_search_results_preserve_unknown_metadata(self):
+        payload = {"results": [{"type": "comment", "id": "c", "post_id": "p", "content": "search snippet"}]}
+        row = compare([], payload, "p")["comments"][0]
+        self.assertEqual(row["comment_id"], "c")
+        self.assertTrue(row["independently_observed"])
+        self.assertIsNone(row["parent_depth"])
+        self.assertIsNone(row["independent_verification_status"])
+
+    def test_typed_post_search_results_are_not_comment_evidence(self):
+        payload = {"results": [{"type": "post", "id": "post", "post_id": "p", "content": "post snippet"}]}
+        self.assertEqual(collect(payload, "p"), {})
+
     def test_dropped_reply_with_independent_evidence(self):
         report = compare({"comments": [comment("root")]},
                          {"notifications": [{"comment": comment("reply", "root")}]}, "p")
